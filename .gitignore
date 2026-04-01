@@ -51,3 +51,6 @@ docs/
 ### Claude ###
 .claude/
 ClAUDE.md
+
+### MCP ###
+.mcp.json
