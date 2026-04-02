@@ -6,6 +6,7 @@ import com.bothsann.wallet.shared.exception.DuplicateIdempotencyKeyException;
 import com.bothsann.wallet.shared.exception.EmailAlreadyExistsException;
 import com.bothsann.wallet.shared.exception.InsufficientBalanceException;
 import com.bothsann.wallet.shared.exception.InvalidTokenException;
+import com.bothsann.wallet.shared.exception.SelfDeactivationException;
 import com.bothsann.wallet.shared.exception.SelfTransferException;
 import com.bothsann.wallet.shared.exception.UserNotFoundException;
 import com.bothsann.wallet.shared.exception.TransactionNotFoundException;
@@ -86,6 +87,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(SelfTransferException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleSelfTransfer(SelfTransferException ex, HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(SelfDeactivationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleSelfDeactivation(SelfDeactivationException ex, HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
