@@ -8,6 +8,7 @@ import com.bothsann.wallet.auth.entity.RefreshToken;
 import com.bothsann.wallet.auth.repository.RefreshTokenRepository;
 import com.bothsann.wallet.shared.config.JwtProperties;
 import com.bothsann.wallet.shared.enums.Role;
+import com.bothsann.wallet.shared.exception.AccountDeactivatedException;
 import com.bothsann.wallet.shared.exception.EmailAlreadyExistsException;
 import com.bothsann.wallet.shared.exception.InvalidTokenException;
 import com.bothsann.wallet.shared.exception.UserNotFoundException;
@@ -64,7 +65,7 @@ public class AuthService {
         User user = userRepository.findByEmail(req.email())
                 .orElseThrow(() -> new UserNotFoundException(req.email()));
         if (!user.isActive()) {
-            throw new RuntimeException("Account deactivated"); // Phase 5: AccountDeactivatedException
+            throw new AccountDeactivatedException();
         }
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(req.email(), req.password()));

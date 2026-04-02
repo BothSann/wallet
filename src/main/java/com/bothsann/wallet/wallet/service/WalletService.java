@@ -77,7 +77,7 @@ public class WalletService {
                 .orElseThrow(WalletNotFoundException::new);
 
         if (wallet.getBalance().compareTo(req.amount()) < 0) {
-            throw new InsufficientBalanceException();
+            throw new InsufficientBalanceException(wallet.getBalance(), req.amount());
         }
 
         BigDecimal balanceBefore = wallet.getBalance();
@@ -121,7 +121,7 @@ public class WalletService {
                 .orElseThrow(WalletNotFoundException::new);
 
         if (senderWallet.getBalance().compareTo(req.amount()) < 0) {
-            throw new InsufficientBalanceException();
+            throw new InsufficientBalanceException(senderWallet.getBalance(), req.amount());
         }
 
         BigDecimal senderBalanceBefore = senderWallet.getBalance();
