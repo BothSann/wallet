@@ -7,6 +7,7 @@ import com.bothsann.wallet.shared.exception.InsufficientBalanceException;
 import com.bothsann.wallet.shared.exception.InvalidTokenException;
 import com.bothsann.wallet.shared.exception.SelfTransferException;
 import com.bothsann.wallet.shared.exception.UserNotFoundException;
+import com.bothsann.wallet.shared.exception.TransactionNotFoundException;
 import com.bothsann.wallet.shared.exception.WalletNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
@@ -48,10 +49,16 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(TransactionNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleTransactionNotFound(TransactionNotFoundException ex, HttpServletRequest request) {
+        return build(HttpStatus.NOT_FOUND, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(InsufficientBalanceException.class)
-    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_CONTENT)
     public ErrorResponse handleInsufficientBalance(InsufficientBalanceException ex, HttpServletRequest request) {
-        return build(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), request);
+        return build(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), request);
     }
 
     @ExceptionHandler(DuplicateIdempotencyKeyException.class)
