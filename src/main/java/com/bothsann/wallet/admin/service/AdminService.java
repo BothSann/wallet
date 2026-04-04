@@ -27,7 +27,7 @@ public class AdminService {
     private final WalletRepository walletRepository;
 
     public PageResponse<UserSummaryResponse> getAllUsers(Pageable pageable) {
-        return PageResponse.of(userRepository.findAll(pageable).map(this::toUserSummary));
+        return PageResponse.of(userRepository.findAll(pageable).map(UserSummaryResponse::from));
     }
 
     public UserDetailResponse getUserById(UUID id) {
@@ -35,16 +35,7 @@ public class AdminService {
                 .orElseThrow(() -> new UserNotFoundException(id));
         Wallet wallet = walletRepository.findByUserId(id)
                 .orElseThrow(WalletNotFoundException::new);
-        return new UserDetailResponse(
-                user.getId(),
-                user.getFullName(),
-                user.getEmail(),
-                user.getPhone(),
-                user.getRole(),
-                user.isActive(),
-                user.getCreatedAt(),
-                toWalletResponse(wallet)
-        );
+        return UserDetailResponse.from(user, wallet);
     }
 
     @Transactional
@@ -56,31 +47,11 @@ public class AdminService {
                 .orElseThrow(() -> new UserNotFoundException(id));
         user.setActive(false);
         userRepository.save(user);
-        return toUserSummary(user);
+        return UserSummaryResponse.from(user);
     }
 
     public PageResponse<WalletResponse> getAllWallets(Pageable pageable) {
-        return PageResponse.of(walletRepository.findAll(pageable).map(this::toWalletResponse));
+        return PageResponse.of(walletRepository.findAll(pageable).map(WalletResponse::from));
     }
 
-    private UserSummaryResponse toUserSummary(User user) {
-        return new UserSummaryResponse(
-                user.getId(),
-                user.getFullName(),
-                user.getEmail(),
-                user.getPhone(),
-                user.getRole(),
-                user.isActive(),
-                user.getCreatedAt()
-        );
-    }
-
-    private WalletResponse toWalletResponse(Wallet wallet) {
-        return new WalletResponse(
-                wallet.getId(),
-                wallet.getBalance(),
-                wallet.getCurrency(),
-                wallet.getUpdatedAt()
-        );
-    }
 }

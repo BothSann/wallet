@@ -37,7 +37,7 @@ public class WalletService {
     public WalletResponse getWallet(UUID userId) {
         Wallet wallet = walletRepository.findByUserId(userId)
                 .orElseThrow(WalletNotFoundException::new);
-        return toWalletResponse(wallet);
+        return WalletResponse.from(wallet);
     }
 
     public TransactionResponse deposit(UUID userId, DepositRequest req, String idempotencyKey) {
@@ -166,12 +166,4 @@ public class WalletService {
         return TransactionResponse.from(senderTx);
     }
 
-    private WalletResponse toWalletResponse(Wallet wallet) {
-        return new WalletResponse(
-                wallet.getId(),
-                wallet.getBalance(),
-                wallet.getCurrency(),
-                wallet.getUpdatedAt()
-        );
-    }
 }
