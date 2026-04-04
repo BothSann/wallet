@@ -38,4 +38,7 @@ public class Wallet extends AuditableEntity {
 
     @Version
     private Long version;
+
+    @Column(name = "pin_hash")
+    private String pinHash;
 }

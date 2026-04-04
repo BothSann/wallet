@@ -4,6 +4,9 @@ import com.bothsann.wallet.shared.enums.TransactionStatus;
 import com.bothsann.wallet.shared.enums.TransactionType;
 import com.bothsann.wallet.shared.exception.DuplicateIdempotencyKeyException;
 import com.bothsann.wallet.shared.exception.InsufficientBalanceException;
+import com.bothsann.wallet.shared.exception.InvalidPinException;
+import com.bothsann.wallet.shared.exception.PinAlreadySetException;
+import com.bothsann.wallet.shared.exception.PinNotSetException;
 import com.bothsann.wallet.shared.exception.SelfTransferException;
 import com.bothsann.wallet.shared.exception.UserNotFoundException;
 import com.bothsann.wallet.shared.exception.WalletNotFoundException;
@@ -11,13 +14,16 @@ import com.bothsann.wallet.transaction.dto.TransactionResponse;
 import com.bothsann.wallet.transaction.entity.Transaction;
 import com.bothsann.wallet.transaction.repository.TransactionRepository;
 import com.bothsann.wallet.user.repository.UserRepository;
+import com.bothsann.wallet.wallet.dto.ChangePinRequest;
 import com.bothsann.wallet.wallet.dto.DepositRequest;
+import com.bothsann.wallet.wallet.dto.SetPinRequest;
 import com.bothsann.wallet.wallet.dto.TransferRequest;
 import com.bothsann.wallet.wallet.dto.WalletResponse;
 import com.bothsann.wallet.wallet.dto.WithdrawRequest;
 import com.bothsann.wallet.wallet.entity.Wallet;
 import com.bothsann.wallet.wallet.repository.WalletRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,12 +38,36 @@ public class WalletService {
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional(readOnly = true)
     public WalletResponse getWallet(UUID userId) {
         Wallet wallet = walletRepository.findByUserId(userId)
                 .orElseThrow(WalletNotFoundException::new);
         return WalletResponse.from(wallet);
+    }
+
+    public void setPin(UUID userId, SetPinRequest req) {
+        Wallet wallet = walletRepository.findByUserId(userId)
+                .orElseThrow(WalletNotFoundException::new);
+        if (wallet.getPinHash() != null) {
+            throw new PinAlreadySetException();
+        }
+        wallet.setPinHash(passwordEncoder.encode(req.pin()));
+        walletRepository.save(wallet);
+    }
+
+    public void changePin(UUID userId, ChangePinRequest req) {
+        Wallet wallet = walletRepository.findByUserId(userId)
+                .orElseThrow(WalletNotFoundException::new);
+        if (wallet.getPinHash() == null) {
+            throw new PinNotSetException();
+        }
+        if (!passwordEncoder.matches(req.currentPin(), wallet.getPinHash())) {
+            throw new InvalidPinException();
+        }
+        wallet.setPinHash(passwordEncoder.encode(req.newPin()));
+        walletRepository.save(wallet);
     }
 
     public TransactionResponse deposit(UUID userId, DepositRequest req, String idempotencyKey) {
@@ -76,6 +106,8 @@ public class WalletService {
         Wallet wallet = walletRepository.findByUserId(userId)
                 .orElseThrow(WalletNotFoundException::new);
 
+        verifyPin(wallet, req.pin());
+
         if (wallet.getBalance().compareTo(req.amount()) < 0) {
             throw new InsufficientBalanceException(wallet.getBalance(), req.amount());
         }
@@ -109,6 +141,8 @@ public class WalletService {
 
         Wallet senderWallet = walletRepository.findByUserId(senderId)
                 .orElseThrow(WalletNotFoundException::new);
+
+        verifyPin(senderWallet, req.pin());
 
         var recipient = userRepository.findByEmail(req.recipientEmail())
                 .orElseThrow(() -> new UserNotFoundException(req.recipientEmail()));
@@ -166,4 +200,12 @@ public class WalletService {
         return TransactionResponse.from(senderTx);
     }
 
+    private void verifyPin(Wallet wallet, String submittedPin) {
+        if (wallet.getPinHash() == null) {
+            throw new PinNotSetException();
+        }
+        if (submittedPin == null || submittedPin.isBlank() || !passwordEncoder.matches(submittedPin, wallet.getPinHash())) {
+            throw new InvalidPinException();
+        }
+    }
 }

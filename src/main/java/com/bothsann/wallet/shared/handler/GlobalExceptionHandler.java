@@ -5,7 +5,10 @@ import com.bothsann.wallet.shared.exception.AccountDeactivatedException;
 import com.bothsann.wallet.shared.exception.DuplicateIdempotencyKeyException;
 import com.bothsann.wallet.shared.exception.EmailAlreadyExistsException;
 import com.bothsann.wallet.shared.exception.InsufficientBalanceException;
+import com.bothsann.wallet.shared.exception.InvalidPinException;
 import com.bothsann.wallet.shared.exception.InvalidTokenException;
+import com.bothsann.wallet.shared.exception.PinAlreadySetException;
+import com.bothsann.wallet.shared.exception.PinNotSetException;
 import com.bothsann.wallet.shared.exception.SelfDeactivationException;
 import com.bothsann.wallet.shared.exception.SelfTransferException;
 import com.bothsann.wallet.shared.exception.UserNotFoundException;
@@ -94,6 +97,24 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleSelfDeactivation(SelfDeactivationException ex, HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(InvalidPinException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ErrorResponse handleInvalidPin(InvalidPinException ex, HttpServletRequest request) {
+        return build(HttpStatus.FORBIDDEN, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(PinNotSetException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ErrorResponse handlePinNotSet(PinNotSetException ex, HttpServletRequest request) {
+        return build(HttpStatus.FORBIDDEN, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(PinAlreadySetException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handlePinAlreadySet(PinAlreadySetException ex, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), request);
     }
 
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)

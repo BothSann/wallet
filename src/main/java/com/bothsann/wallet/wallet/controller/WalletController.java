@@ -2,7 +2,9 @@ package com.bothsann.wallet.wallet.controller;
 
 import com.bothsann.wallet.transaction.dto.TransactionResponse;
 import com.bothsann.wallet.user.entity.User;
+import com.bothsann.wallet.wallet.dto.ChangePinRequest;
 import com.bothsann.wallet.wallet.dto.DepositRequest;
+import com.bothsann.wallet.wallet.dto.SetPinRequest;
 import com.bothsann.wallet.wallet.dto.TransferRequest;
 import com.bothsann.wallet.wallet.dto.WalletResponse;
 import com.bothsann.wallet.wallet.dto.WithdrawRequest;
@@ -13,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -59,5 +62,21 @@ public class WalletController {
             @Valid @RequestBody TransferRequest req,
             @RequestHeader("Idempotency-Key") String idempotencyKey) {
         return ResponseEntity.ok(walletService.transfer(currentUser.getId(), req, idempotencyKey));
+    }
+
+    @PostMapping("/pin")
+    public ResponseEntity<Void> setPin(
+            @AuthenticationPrincipal User currentUser,
+            @Valid @RequestBody SetPinRequest req) {
+        walletService.setPin(currentUser.getId(), req);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/pin")
+    public ResponseEntity<Void> changePin(
+            @AuthenticationPrincipal User currentUser,
+            @Valid @RequestBody ChangePinRequest req) {
+        walletService.changePin(currentUser.getId(), req);
+        return ResponseEntity.noContent().build();
     }
 }
