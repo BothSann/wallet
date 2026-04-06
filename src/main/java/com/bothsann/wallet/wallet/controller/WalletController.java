@@ -3,9 +3,11 @@ package com.bothsann.wallet.wallet.controller;
 import com.bothsann.wallet.transaction.dto.TransactionResponse;
 import com.bothsann.wallet.user.entity.User;
 import com.bothsann.wallet.wallet.dto.ChangePinRequest;
+import com.bothsann.wallet.wallet.dto.DailyLimitResponse;
 import com.bothsann.wallet.wallet.dto.DepositRequest;
 import com.bothsann.wallet.wallet.dto.SetPinRequest;
 import com.bothsann.wallet.wallet.dto.TransferRequest;
+import com.bothsann.wallet.wallet.dto.UpdateDailyLimitRequest;
 import com.bothsann.wallet.wallet.dto.WalletResponse;
 import com.bothsann.wallet.wallet.dto.WithdrawRequest;
 import com.bothsann.wallet.wallet.service.WalletService;
@@ -14,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -62,6 +65,19 @@ public class WalletController {
             @Valid @RequestBody TransferRequest req,
             @RequestHeader("Idempotency-Key") String idempotencyKey) {
         return ResponseEntity.ok(walletService.transfer(currentUser.getId(), req, idempotencyKey));
+    }
+
+    @GetMapping("/daily-limit")
+    public ResponseEntity<DailyLimitResponse> getDailyLimit(
+            @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(walletService.getDailyLimitStatus(currentUser.getId()));
+    }
+
+    @PatchMapping("/daily-limit")
+    public ResponseEntity<DailyLimitResponse> updateDailyLimit(
+            @AuthenticationPrincipal User currentUser,
+            @Valid @RequestBody UpdateDailyLimitRequest request) {
+        return ResponseEntity.ok(walletService.updateDailyLimit(currentUser.getId(), request));
     }
 
     @PostMapping("/pin")

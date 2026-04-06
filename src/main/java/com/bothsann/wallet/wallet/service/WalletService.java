@@ -2,6 +2,7 @@ package com.bothsann.wallet.wallet.service;
 
 import com.bothsann.wallet.shared.enums.TransactionStatus;
 import com.bothsann.wallet.shared.enums.TransactionType;
+import com.bothsann.wallet.shared.exception.DailyLimitCapExceededException;
 import com.bothsann.wallet.shared.exception.DuplicateIdempotencyKeyException;
 import com.bothsann.wallet.shared.exception.InsufficientBalanceException;
 import com.bothsann.wallet.shared.exception.InvalidPinException;
@@ -15,19 +16,25 @@ import com.bothsann.wallet.transaction.entity.Transaction;
 import com.bothsann.wallet.transaction.repository.TransactionRepository;
 import com.bothsann.wallet.user.repository.UserRepository;
 import com.bothsann.wallet.wallet.dto.ChangePinRequest;
+import com.bothsann.wallet.wallet.dto.DailyLimitResponse;
 import com.bothsann.wallet.wallet.dto.DepositRequest;
 import com.bothsann.wallet.wallet.dto.SetPinRequest;
 import com.bothsann.wallet.wallet.dto.TransferRequest;
+import com.bothsann.wallet.wallet.dto.UpdateDailyLimitRequest;
 import com.bothsann.wallet.wallet.dto.WalletResponse;
 import com.bothsann.wallet.wallet.dto.WithdrawRequest;
 import com.bothsann.wallet.wallet.entity.Wallet;
 import com.bothsann.wallet.wallet.repository.WalletRepository;
+import com.bothsann.wallet.shared.config.WalletProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 @Service
@@ -39,6 +46,8 @@ public class WalletService {
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final DailyLimitService dailyLimitService;
+    private final WalletProperties walletProperties;
 
     @Transactional(readOnly = true)
     public WalletResponse getWallet(UUID userId) {
@@ -68,6 +77,27 @@ public class WalletService {
         }
         wallet.setPinHash(passwordEncoder.encode(req.newPin()));
         walletRepository.save(wallet);
+    }
+
+    @Transactional(readOnly = true)
+    public DailyLimitResponse getDailyLimitStatus(UUID userId) {
+        Wallet wallet = walletRepository.findByUserId(userId)
+                .orElseThrow(WalletNotFoundException::new);
+        BigDecimal todaySpend = dailyLimitService.getTodaySpend(wallet.getId());
+        BigDecimal remaining = wallet.getDailyLimit().subtract(todaySpend);
+        Instant resetAt = LocalDate.now(ZoneOffset.UTC).plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+        return new DailyLimitResponse(wallet.getDailyLimit(), todaySpend, remaining, resetAt);
+    }
+
+    public DailyLimitResponse updateDailyLimit(UUID userId, UpdateDailyLimitRequest req) {
+        Wallet wallet = walletRepository.findByUserId(userId)
+                .orElseThrow(WalletNotFoundException::new);
+        if (req.dailyLimit().compareTo(walletProperties.getMaxDailyLimit()) > 0) {
+            throw new DailyLimitCapExceededException(walletProperties.getMaxDailyLimit());
+        }
+        wallet.setDailyLimit(req.dailyLimit());
+        walletRepository.save(wallet);
+        return getDailyLimitStatus(userId);
     }
 
     public TransactionResponse deposit(UUID userId, DepositRequest req, String idempotencyKey) {
@@ -107,6 +137,7 @@ public class WalletService {
                 .orElseThrow(WalletNotFoundException::new);
 
         verifyPin(wallet, req.pin());
+        dailyLimitService.checkLimit(wallet, req.amount());
 
         if (wallet.getBalance().compareTo(req.amount()) < 0) {
             throw new InsufficientBalanceException(wallet.getBalance(), req.amount());
@@ -143,6 +174,7 @@ public class WalletService {
                 .orElseThrow(WalletNotFoundException::new);
 
         verifyPin(senderWallet, req.pin());
+        dailyLimitService.checkLimit(senderWallet, req.amount());
 
         var recipient = userRepository.findByEmail(req.recipientEmail())
                 .orElseThrow(() -> new UserNotFoundException(req.recipientEmail()));

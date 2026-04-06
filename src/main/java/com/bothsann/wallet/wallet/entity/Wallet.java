@@ -41,4 +41,8 @@ public class Wallet extends AuditableEntity {
 
     @Column(name = "pin_hash")
     private String pinHash;
+
+    @Builder.Default
+    @Column(name = "daily_limit", nullable = false)
+    private BigDecimal dailyLimit = new BigDecimal("10000.0000");
 }

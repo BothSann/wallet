@@ -2,6 +2,8 @@ package com.bothsann.wallet.shared.handler;
 
 import com.bothsann.wallet.shared.dto.ErrorResponse;
 import com.bothsann.wallet.shared.exception.AccountDeactivatedException;
+import com.bothsann.wallet.shared.exception.DailyLimitCapExceededException;
+import com.bothsann.wallet.shared.exception.DailyLimitExceededException;
 import com.bothsann.wallet.shared.exception.DuplicateIdempotencyKeyException;
 import com.bothsann.wallet.shared.exception.EmailAlreadyExistsException;
 import com.bothsann.wallet.shared.exception.InsufficientBalanceException;
@@ -97,6 +99,18 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleSelfDeactivation(SelfDeactivationException ex, HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(DailyLimitCapExceededException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleDailyLimitCap(DailyLimitCapExceededException ex, HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(DailyLimitExceededException.class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    public ErrorResponse handleDailyLimitExceeded(DailyLimitExceededException ex, HttpServletRequest request) {
+        return build(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request);
     }
 
     @ExceptionHandler(InvalidPinException.class)

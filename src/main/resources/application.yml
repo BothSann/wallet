@@ -31,6 +31,8 @@ application:
     secret: ${JWT_SECRET:changeme-this-is-a-very-long-secret-key-for-local-dev-only-replace-in-prod}
     access-expiration: ${JWT_ACCESS_EXPIRATION:900000}
     refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+  wallet:
+    max-daily-limit: ${WALLET_MAX_DAILY_LIMIT:50000}
 
 logging:
   pattern:
