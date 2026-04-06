@@ -2,6 +2,8 @@ package com.bothsann.wallet.wallet.service;
 
 import com.bothsann.wallet.shared.enums.TransactionStatus;
 import com.bothsann.wallet.shared.enums.TransactionType;
+import com.bothsann.wallet.shared.event.DepositSuccessEvent;
+import com.bothsann.wallet.shared.event.TransferReceivedEvent;
 import com.bothsann.wallet.shared.exception.DailyLimitCapExceededException;
 import com.bothsann.wallet.shared.exception.DuplicateIdempotencyKeyException;
 import com.bothsann.wallet.shared.exception.InsufficientBalanceException;
@@ -27,6 +29,7 @@ import com.bothsann.wallet.wallet.entity.Wallet;
 import com.bothsann.wallet.wallet.repository.WalletRepository;
 import com.bothsann.wallet.shared.config.WalletProperties;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +51,7 @@ public class WalletService {
     private final PasswordEncoder passwordEncoder;
     private final DailyLimitService dailyLimitService;
     private final WalletProperties walletProperties;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public WalletResponse getWallet(UUID userId) {
@@ -125,6 +129,13 @@ public class WalletService {
         tx.setStatus(TransactionStatus.SUCCESS);
         tx.setBalanceAfter(wallet.getBalance());
         transactionRepository.save(tx);
+
+        eventPublisher.publishEvent(new DepositSuccessEvent(
+                wallet.getUser().getEmail(),
+                wallet.getUser().getFullName(),
+                req.amount(),
+                wallet.getBalance()
+        ));
 
         return TransactionResponse.from(tx);
     }
@@ -228,6 +239,14 @@ public class WalletService {
         recipientTx.setStatus(TransactionStatus.SUCCESS);
         recipientTx.setBalanceAfter(recipientWallet.getBalance());
         transactionRepository.save(recipientTx);
+
+        eventPublisher.publishEvent(new TransferReceivedEvent(
+                recipient.getEmail(),
+                recipient.getFullName(),
+                senderWallet.getUser().getEmail(),
+                req.amount(),
+                recipientWallet.getBalance()
+        ));
 
         return TransactionResponse.from(senderTx);
     }
