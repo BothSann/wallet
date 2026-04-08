@@ -2,6 +2,7 @@ package com.bothsann.wallet.admin.service;
 
 import com.bothsann.wallet.admin.dto.UserDetailResponse;
 import com.bothsann.wallet.admin.dto.UserSummaryResponse;
+import com.bothsann.wallet.shared.audit.AuditService;
 import com.bothsann.wallet.shared.dto.PageResponse;
 import com.bothsann.wallet.shared.exception.SelfDeactivationException;
 import com.bothsann.wallet.shared.exception.UserNotFoundException;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -25,6 +27,7 @@ public class AdminService {
 
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
+    private final AuditService auditService;
 
     public PageResponse<UserSummaryResponse> getAllUsers(Pageable pageable) {
         return PageResponse.of(userRepository.findAll(pageable).map(UserSummaryResponse::from));
@@ -46,6 +49,9 @@ public class AdminService {
                 .orElseThrow(() -> new UserNotFoundException(id));
         user.setActive(false);
         userRepository.save(user);
+        auditService.log("USER", user.getId(), "USER_DEACTIVATED", currentAdminId,
+                Map.of("isActive", true),
+                Map.of("isActive", false));
         return UserSummaryResponse.from(user);
     }
 

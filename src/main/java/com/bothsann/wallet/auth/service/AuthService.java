@@ -6,6 +6,7 @@ import com.bothsann.wallet.auth.dto.RefreshTokenRequest;
 import com.bothsann.wallet.auth.dto.RegisterRequest;
 import com.bothsann.wallet.auth.entity.RefreshToken;
 import com.bothsann.wallet.auth.repository.RefreshTokenRepository;
+import com.bothsann.wallet.shared.audit.AuditService;
 import com.bothsann.wallet.shared.config.JwtProperties;
 import com.bothsann.wallet.shared.currency.CurrencyProperties;
 import com.bothsann.wallet.shared.enums.Role;
@@ -28,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Service
 @Transactional
@@ -42,6 +44,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final CurrencyProperties currencyProperties;
+    private final AuditService auditService;
 
     public AuthResponse register(RegisterRequest req) {
         if (userRepository.existsByEmail(req.email())) {
@@ -62,12 +65,20 @@ public class AuthService {
         if (!currencyProperties.getWalletCurrencies().contains(currency)) {
             throw new UnsupportedCurrencyException(currency, currencyProperties.getWalletCurrencies());
         }
-        walletRepository.save(Wallet.builder()
+        Wallet wallet = walletRepository.save(Wallet.builder()
                 .user(user)
                 .balance(BigDecimal.ZERO)
                 .currency(currency)
                 .isDefault(true)
                 .build());
+
+        auditService.log("USER", user.getId(), "USER_CREATED", user.getId(),
+                null,
+                Map.of("email", user.getEmail(), "role", user.getRole().name()));
+        auditService.log("WALLET", wallet.getId(), "WALLET_CREATED", user.getId(),
+                null,
+                Map.of("currency", currency, "balance", BigDecimal.ZERO));
+
         return buildAuthResponse(user);
     }
 

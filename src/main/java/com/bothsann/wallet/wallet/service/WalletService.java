@@ -1,5 +1,6 @@
 package com.bothsann.wallet.wallet.service;
 
+import com.bothsann.wallet.shared.audit.AuditService;
 import com.bothsann.wallet.shared.currency.CurrencyProperties;
 import com.bothsann.wallet.shared.enums.TransactionStatus;
 import com.bothsann.wallet.shared.enums.TransactionType;
@@ -46,6 +47,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -62,6 +64,7 @@ public class WalletService {
     private final CurrencyProperties currencyProperties;
     private final ApplicationEventPublisher eventPublisher;
     private final ExchangeRateService exchangeRateService;
+    private final AuditService auditService;
 
     @Transactional(readOnly = true)
     public List<WalletResponse> listWallets(UUID userId) {
@@ -84,6 +87,9 @@ public class WalletService {
                 .currency(currency)
                 .isDefault(false)
                 .build());
+        auditService.log("WALLET", wallet.getId(), "WALLET_CREATED", userId,
+                null,
+                Map.of("currency", currency, "balance", BigDecimal.ZERO));
         return WalletResponse.from(wallet);
     }
 
@@ -102,6 +108,9 @@ public class WalletService {
         }
         user.setPinHash(passwordEncoder.encode(req.pin()));
         userRepository.save(user);
+        auditService.log("USER", userId, "PIN_SET", userId,
+                null,
+                Map.of("pinSet", true));
     }
 
     public void changePin(UUID userId, ChangePinRequest req) {
@@ -115,6 +124,9 @@ public class WalletService {
         }
         user.setPinHash(passwordEncoder.encode(req.newPin()));
         userRepository.save(user);
+        auditService.log("USER", userId, "PIN_CHANGED", userId,
+                Map.of("pinSet", true),
+                Map.of("pinSet", true));
     }
 
     @Transactional(readOnly = true)
@@ -133,8 +145,12 @@ public class WalletService {
         if (req.dailyLimit().compareTo(walletProperties.getMaxDailyLimit()) > 0) {
             throw new DailyLimitCapExceededException(walletProperties.getMaxDailyLimit());
         }
+        BigDecimal oldLimit = wallet.getDailyLimit();
         wallet.setDailyLimit(req.dailyLimit());
         walletRepository.save(wallet);
+        auditService.log("WALLET", wallet.getId(), "DAILY_LIMIT_UPDATED", userId,
+                Map.of("dailyLimit", oldLimit),
+                Map.of("dailyLimit", req.dailyLimit()));
         return getDailyLimitStatus(userId, walletId);
     }
 
@@ -163,6 +179,10 @@ public class WalletService {
         tx.setStatus(TransactionStatus.SUCCESS);
         tx.setBalanceAfter(wallet.getBalance());
         transactionRepository.save(tx);
+
+        auditService.log("WALLET", wallet.getId(), "BALANCE_CHANGED", userId,
+                Map.of("balance", balanceBefore, "currency", wallet.getCurrency()),
+                Map.of("balance", wallet.getBalance(), "currency", wallet.getCurrency()));
 
         eventPublisher.publishEvent(new DepositSuccessEvent(
                 wallet.getUser().getEmail(),
@@ -207,6 +227,10 @@ public class WalletService {
         tx.setBalanceAfter(wallet.getBalance());
         transactionRepository.save(tx);
 
+        auditService.log("WALLET", wallet.getId(), "BALANCE_CHANGED", userId,
+                Map.of("balance", balanceBefore, "currency", wallet.getCurrency()),
+                Map.of("balance", wallet.getBalance(), "currency", wallet.getCurrency()));
+
         return TransactionResponse.from(tx);
     }
 
@@ -231,8 +255,18 @@ public class WalletService {
         Wallet recipientWallet = walletRepository.findByIdAndUserId(req.recipientWalletId(), recipient.getId())
                 .orElseThrow(WalletNotFoundException::new);
 
+        BigDecimal senderBalanceBefore = senderWallet.getBalance();
+        BigDecimal recipientBalanceBefore = recipientWallet.getBalance();
+
         Transaction senderTx = executeBilateralTransfer(
                 senderWallet, recipientWallet, req.amount(), req.description(), idempotencyKey);
+
+        auditService.log("WALLET", senderWallet.getId(), "BALANCE_CHANGED", senderId,
+                Map.of("balance", senderBalanceBefore, "currency", senderWallet.getCurrency()),
+                Map.of("balance", senderWallet.getBalance(), "currency", senderWallet.getCurrency()));
+        auditService.log("WALLET", recipientWallet.getId(), "BALANCE_CHANGED", senderId,
+                Map.of("balance", recipientBalanceBefore, "currency", recipientWallet.getCurrency()),
+                Map.of("balance", recipientWallet.getBalance(), "currency", recipientWallet.getCurrency()));
 
         String senderCurrency = senderWallet.getCurrency();
         String recipientCurrency = recipientWallet.getCurrency();
@@ -266,8 +300,18 @@ public class WalletService {
 
         verifyPin(fromWallet.getUser(), req.pin());
 
+        BigDecimal fromBalanceBefore = fromWallet.getBalance();
+        BigDecimal toBalanceBefore = toWallet.getBalance();
+
         Transaction fromTx = executeBilateralTransfer(
                 fromWallet, toWallet, req.amount(), req.description(), idempotencyKey);
+
+        auditService.log("WALLET", fromWallet.getId(), "BALANCE_CHANGED", userId,
+                Map.of("balance", fromBalanceBefore, "currency", fromWallet.getCurrency()),
+                Map.of("balance", fromWallet.getBalance(), "currency", fromWallet.getCurrency()));
+        auditService.log("WALLET", toWallet.getId(), "BALANCE_CHANGED", userId,
+                Map.of("balance", toBalanceBefore, "currency", toWallet.getCurrency()),
+                Map.of("balance", toWallet.getBalance(), "currency", toWallet.getCurrency()));
 
         return TransactionResponse.from(fromTx);
     }
